@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # Add your services here
+  example:
+    image: example:latest
+    container_name: example-container
+    ports:
+      - "8080:8080"
+    environment:
+      - EXAMPLE_ENV=value
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
+
+volumes:
+  # Define volumes here if needed
