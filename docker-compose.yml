@@ -1,29 +1,46 @@
 # More info at https://github.com/pi-hole/docker-pi-hole/ and https://docs.pi-hole.net/
+#
+# Network setup: macvlan
+# The Pi-hole container gets its own dedicated IP on the LAN (192.168.178.2),
+# so it does not conflict with the NAS's port 53.
+# Note: the NAS host cannot reach the container directly over macvlan.
+# If you need that, set up a "shim" macvlan interface on the host (see Step 6).
 services:
   pihole:
     container_name: pihole
-    image: pihole/pihole:latest
-    # For DHCP it is recommended to remove these ports and instead add: network_mode: "host"
-    # We do not need any port mappings because we are using network mode "host"
-    ports:
-       - "8081:8081"
-       - "__NAS_IP__:53:53/tcp"
-       - "__NAS_IP__:53:53/udp"
-       - "__NAS_IP__:67:67/udp"   # Only required if you are using Pi-hole as your DHCP server
-       - "__NAS_IP__:123:123/udp" # Only required if you are using Pi-hole as your DHCP server
+    image:          pihole/pihole:latest
+    hostname:       pihole
+    networks:
+      pihole_net:
+        ipv4_address: 192.168.178.2
     environment:
-      DNSMASQ_LISTENING: local
-      DNSMASQ_USER: root
-      TZ: 'Europe/Berlin'
-      FTLCONF_webserver_port: 8081
-      FTLCONF_webserver_api_password: '__WEB_UI_PASSWORT__' # Change this when creating the container
-    # Volumes store your data between container upgrades
+      TZ:                             'Europe/Berlin'
+      FTLCONF_webserver_port:         8081
+      FTLCONF_webserver_api_password: '__WEB_UI_PASSWORT__'
+      FTLCONF_dns_listeningMode:      'all'
+      FTLCONF_dns_upstreams:          '1.1.1.1;9.9.9.9' # default upstream DNS servers
+    # default upstream DNS servers for bootstrapping
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
     volumes:
-    #  - '/volume1/docker/pihole/var:/var'
+      #  - '/volume1/docker/pihole/var:/var'
       - '/volume1/docker/pihole/etc:/etc/pihole'
       - '/volume1/docker/pihole/dnsmasq:/etc/dnsmasq.d'
     #   https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
     cap_add:
-      - NET_ADMIN # Required if you are using Pi-hole as your DHCP server, else not needed
-    restart: unless-stopped
-    #network_mode: host
+      - NET_ADMIN
+      - SYS_NICE
+    restart:        unless-stopped
+
+networks:
+  pihole_net:
+    driver: macvlan
+    driver_opts:
+      parent: eth0
+    ipam:
+      config:
+        - subnet:   192.168.178.0/24
+          gateway:  192.168.178.1
+          ip_range: 192.168.178.2/32
+
